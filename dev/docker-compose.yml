@@ -1,0 +1,54 @@
+version: '2.1'
+
+services:
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123456
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - DB_USER=odoo16
+      - DB_PASSWORD=odoo16
+      - DB_NAME=odoo16
+    ports:
+      - 5499:5432
+    networks:
+      - bridge-network
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+      - ./create-odoo-db.sh:/docker-entrypoint-initdb.d/create-odoo-db.sh:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    command: ["postgres", "-c", "log_statement=all"]
+  odoo:
+    tty: true
+    stdin_open: true
+    image: odoo:latest-arm64v8
+    build:
+      context: ./../
+      dockerfile: ./docker/odoo/Dockerfile
+    depends_on:
+      - db
+    ports:
+      - 8069:8069
+    networks:
+      - bridge-network
+    volumes:
+      - odoo-data:/odoo/data
+      - ../src:/odoo/local-src
+      - ../migration:/odoo/migration
+    environment:
+      - ADDONS_PATH=/odoo/local-src,/odoo/addons/reporting-engine-16.0
+      - DEV=true
+      - DB_USER=odoo16
+      - DB_PASSWORD=odoo16
+      - DB_NAME=odoo16
+    command:  odoo --dev=reload,xml --unaccent -i base
+    restart: always
+volumes:
+  postgresql-data:
+  odoo-data:
+networks:
+  bridge-network:
+    driver: bridge
